@@ -1,3 +1,4 @@
+```yaml
 name: Build Nobatyar APK
 
 on:
@@ -8,7 +9,6 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -38,7 +38,6 @@ jobs:
 
       - name: Create Project
         run: |
-
           mkdir -p app/src/main/java/ir/kalavira/nobatyar
           mkdir -p app/src/main/res/values
 
@@ -82,16 +81,18 @@ jobs:
                   applicationId 'ir.kalavira.nobatyar'
                   minSdk 24
                   targetSdk 35
-                  versionCode 1
-                  versionName '1.0'
+                  versionCode 2
+                  versionName '1.1'
               }
           }
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
               <application
                   android:allowBackup="true"
@@ -117,7 +118,6 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-
           <resources>
 
               <style
@@ -128,6 +128,7 @@ jobs:
                   <item name="android:windowLightStatusBar">true</item>
                   <item name="android:statusBarColor">#FFFFFF</item>
                   <item name="android:navigationBarColor">#FFFFFF</item>
+                  <item name="android:windowActionModeOverlay">true</item>
 
               </style>
 
@@ -139,43 +140,1009 @@ jobs:
 
           import android.app.Activity;
           import android.os.Bundle;
+          import android.content.Context;
+          import android.content.SharedPreferences;
           import android.graphics.Color;
+          import android.graphics.Typeface;
           import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.EditText;
           import android.widget.LinearLayout;
+          import android.widget.ScrollView;
           import android.widget.TextView;
+          import android.widget.Toast;
+
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+
+          import java.io.BufferedReader;
+          import java.io.InputStreamReader;
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.nio.charset.StandardCharsets;
 
           public class MainActivity extends Activity {
+
+              private static final String API =
+                      "https://kalavira.ir/api/";
+
+              private SharedPreferences prefs;
+              private LinearLayout root;
+              private TextView title;
+
+              private int dark = Color.rgb(15, 23, 42);
+              private int blue = Color.rgb(37, 99, 235);
+              private int light = Color.rgb(248, 250, 252);
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  LinearLayout layout = new LinearLayout(this);
+                  prefs = getSharedPreferences("nobatyar", MODE_PRIVATE);
 
-                  layout.setOrientation(LinearLayout.VERTICAL);
-                  layout.setGravity(Gravity.CENTER);
-                  layout.setPadding(40, 40, 40, 40);
-                  layout.setBackgroundColor(Color.WHITE);
+                  showStart();
+              }
 
-                  TextView title = new TextView(this);
+              private void showStart() {
 
-                  title.setText("نوبت‌یار");
-                  title.setTextSize(32);
-                  title.setTextColor(Color.rgb(15, 23, 42));
-                  title.setGravity(Gravity.CENTER);
+                  if (prefs.getString("token", "").isEmpty()) {
+                      showLogin();
+                  } else {
+                      showHome();
+                  }
+              }
 
-                  TextView subtitle = new TextView(this);
+              private void base(String pageTitle) {
 
-                  subtitle.setText("سامانه رزرو نوبت");
-                  subtitle.setTextSize(18);
-                  subtitle.setTextColor(Color.DKGRAY);
-                  subtitle.setGravity(Gravity.CENTER);
-                  subtitle.setPadding(0, 20, 0, 0);
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(30, 35, 30, 30);
+                  root.setBackgroundColor(light);
+                  root.setGravity(Gravity.RIGHT);
 
-                  layout.addView(title);
-                  layout.addView(subtitle);
+                  title = new TextView(this);
+                  title.setText(pageTitle);
+                  title.setTextSize(28);
+                  title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  title.setTextColor(dark);
+                  title.setGravity(Gravity.RIGHT);
+                  title.setPadding(0, 0, 0, 30);
 
-                  setContentView(layout);
+                  root.addView(title);
+
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.addView(root);
+
+                  setContentView(scroll);
+              }
+
+              private EditText input(String hint) {
+
+                  EditText e = new EditText(this);
+                  e.setHint(hint);
+                  e.setTextSize(17);
+                  e.setSingleLine(true);
+                  e.setGravity(Gravity.RIGHT);
+                  e.setPadding(25, 20, 25, 20);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  LinearLayout.LayoutParams.WRAP_CONTENT);
+
+                  p.setMargins(0, 0, 0, 18);
+                  e.setLayoutParams(p);
+
+                  root.addView(e);
+
+                  return e;
+              }
+
+              private Button button(String text) {
+
+                  Button b = new Button(this);
+                  b.setText(text);
+                  b.setTextSize(17);
+                  b.setTextColor(Color.WHITE);
+                  b.setBackgroundColor(blue);
+
+                  LinearLayout.LayoutParams p =
+                          new LinearLayout.LayoutParams(
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  LinearLayout.LayoutParams.WRAP_CONTENT);
+
+                  p.setMargins(0, 0, 0, 15);
+                  b.setLayoutParams(p);
+
+                  root.addView(b);
+
+                  return b;
+              }
+
+              private void message(String text) {
+                  Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+              }
+
+              private void showLogin() {
+
+                  base("ورود به نوبت‌یار");
+
+                  TextView sub = new TextView(this);
+                  sub.setText("برای رزرو نوبت وارد حساب خود شوید");
+                  sub.setTextSize(17);
+                  sub.setTextColor(Color.DKGRAY);
+                  sub.setGravity(Gravity.RIGHT);
+                  root.addView(sub);
+
+                  EditText phone = input("شماره موبایل");
+
+                  EditText password = input("رمز عبور");
+                  password.setInputType(129);
+
+                  Button login = button("ورود");
+
+                  login.setOnClickListener(v -> {
+
+                      if (phone.getText().toString().trim().isEmpty()
+                              || password.getText().toString().isEmpty()) {
+
+                          message("شماره موبایل و رمز عبور را وارد کنید");
+                          return;
+                      }
+
+                      login.setEnabled(false);
+
+                      new Thread(() -> {
+
+                          try {
+
+                              JSONObject data = new JSONObject();
+
+                              data.put(
+                                      "action",
+                                      "login");
+
+                              data.put(
+                                      "phone",
+                                      phone.getText().toString().trim());
+
+                              data.put(
+                                      "password",
+                                      password.getText().toString());
+
+                              String response =
+                                      request(
+                                              "auth.php",
+                                              "POST",
+                                              data.toString(),
+                                              "");
+
+                              JSONObject json =
+                                      new JSONObject(response);
+
+                              if (json.optBoolean("ok")) {
+
+                                  String token =
+                                          json.optString("token");
+
+                                  prefs.edit()
+                                          .putString("token", token)
+                                          .apply();
+
+                                  runOnUiThread(this::showHome);
+
+                              } else {
+
+                                  runOnUiThread(() ->
+                                          message(
+                                                  json.optString(
+                                                          "message",
+                                                          "ورود ناموفق بود")));
+
+                              }
+
+                          } catch (Exception e) {
+
+                              runOnUiThread(() ->
+                                      message(
+                                              "خطا در ارتباط با سرور"));
+
+                          }
+
+                          runOnUiThread(() ->
+                                  login.setEnabled(true));
+
+                      }).start();
+
+                  });
+
+                  Button register = button("ثبت‌نام");
+
+                  register.setBackgroundColor(Color.DKGRAY);
+
+                  register.setOnClickListener(v -> showRegister());
+              }
+
+              private void showRegister() {
+
+                  base("ثبت‌نام در نوبت‌یار");
+
+                  EditText name = input("نام و نام خانوادگی");
+                  EditText phone = input("شماره موبایل");
+                  EditText email = input("ایمیل - اختیاری");
+
+                  EditText password = input("رمز عبور");
+                  password.setInputType(129);
+
+                  Button register = button("ایجاد حساب");
+
+                  register.setOnClickListener(v -> {
+
+                      if (name.getText().toString().trim().isEmpty()
+                              || phone.getText().toString().trim().isEmpty()
+                              || password.getText().toString().isEmpty()) {
+
+                          message("نام، شماره موبایل و رمز عبور الزامی است");
+                          return;
+                      }
+
+                      register.setEnabled(false);
+
+                      new Thread(() -> {
+
+                          try {
+
+                              JSONObject data = new JSONObject();
+
+                              data.put(
+                                      "action",
+                                      "register");
+
+                              data.put(
+                                      "name",
+                                      name.getText().toString().trim());
+
+                              data.put(
+                                      "phone",
+                                      phone.getText().toString().trim());
+
+                              data.put(
+                                      "email",
+                                      email.getText().toString().trim());
+
+                              data.put(
+                                      "password",
+                                      password.getText().toString());
+
+                              data.put(
+                                      "role",
+                                      "customer");
+
+                              String response =
+                                      request(
+                                              "auth.php",
+                                              "POST",
+                                              data.toString(),
+                                              "");
+
+                              JSONObject json =
+                                      new JSONObject(response);
+
+                              if (json.optBoolean("ok")) {
+
+                                  String token =
+                                          json.optString("token");
+
+                                  prefs.edit()
+                                          .putString("token", token)
+                                          .apply();
+
+                                  runOnUiThread(this::showHome);
+
+                              } else {
+
+                                  runOnUiThread(() ->
+                                          message(
+                                                  json.optString(
+                                                          "message",
+                                                          "ثبت‌نام انجام نشد")));
+
+                              }
+
+                          } catch (Exception e) {
+
+                              runOnUiThread(() ->
+                                      message(
+                                              "خطا در ارتباط با سرور"));
+
+                          }
+
+                          runOnUiThread(() ->
+                                  register.setEnabled(true));
+
+                      }).start();
+
+                  });
+
+                  Button back = button("بازگشت به ورود");
+                  back.setBackgroundColor(Color.DKGRAY);
+                  back.setOnClickListener(v -> showLogin());
+              }
+
+              private void showHome() {
+
+                  base("نوبت‌یار");
+
+                  TextView welcome = new TextView(this);
+
+                  welcome.setText(
+                          "به نوبت‌یار خوش آمدید\n\nاز اینجا می‌توانید کسب‌وکار موردنظر را انتخاب و نوبت رزرو کنید.");
+
+                  welcome.setTextSize(18);
+                  welcome.setTextColor(dark);
+                  welcome.setGravity(Gravity.RIGHT);
+                  welcome.setPadding(0, 0, 0, 30);
+
+                  root.addView(welcome);
+
+                  Button businesses =
+                          button("🏢 مشاهده کسب‌وکارها");
+
+                  businesses.setOnClickListener(
+                          v -> loadBusinesses());
+
+                  Button appointments =
+                          button("📅 نوبت‌های من");
+
+                  appointments.setOnClickListener(
+                          v -> loadMyAppointments());
+
+                  Button profile =
+                          button("👤 حساب کاربری");
+
+                  profile.setOnClickListener(
+                          v -> showProfile());
+
+                  Button logout =
+                          button("خروج از حساب");
+
+                  logout.setBackgroundColor(Color.DKGRAY);
+
+                  logout.setOnClickListener(v -> {
+
+                      prefs.edit()
+                              .clear()
+                              .apply();
+
+                      showLogin();
+                  });
+              }
+
+              private void loadBusinesses() {
+
+                  base("انتخاب کسب‌وکار");
+
+                  TextView loading =
+                          new TextView(this);
+
+                  loading.setText("در حال دریافت کسب‌وکارها...");
+                  loading.setTextSize(18);
+                  loading.setGravity(Gravity.RIGHT);
+
+                  root.addView(loading);
+
+                  new Thread(() -> {
+
+                      try {
+
+                          String response =
+                                  request(
+                                          "bussineses.php",
+                                          "GET",
+                                          "",
+                                          "");
+
+                          JSONObject json =
+                                  new JSONObject(response);
+
+                          JSONArray items =
+                                  json.optJSONArray("businesses");
+
+                          runOnUiThread(() -> {
+
+                              root.removeView(loading);
+
+                              if (items == null
+                                      || items.length() == 0) {
+
+                                  TextView empty =
+                                          new TextView(this);
+
+                                  empty.setText(
+                                          "در حال حاضر کسب‌وکار فعالی ثبت نشده است.");
+
+                                  empty.setTextSize(17);
+                                  empty.setGravity(Gravity.RIGHT);
+
+                                  root.addView(empty);
+                                  return;
+                              }
+
+                              for (int i = 0;
+                                   i < items.length();
+                                   i++) {
+
+                                  try {
+
+                                      JSONObject item =
+                                              items.getJSONObject(i);
+
+                                      int id =
+                                              item.optInt("id");
+
+                                      String name =
+                                              item.optString(
+                                                      "name",
+                                                      "کسب‌وکار");
+
+                                      Button b =
+                                              button("🏢 " + name);
+
+                                      b.setOnClickListener(
+                                              v -> loadServices(id, name));
+
+                                  } catch (Exception ignored) {
+                                  }
+                              }
+                          });
+
+                      } catch (Exception e) {
+
+                          runOnUiThread(() ->
+                                  message(
+                                          "خطا در دریافت کسب‌وکارها"));
+                      }
+
+                  }).start();
+              }
+
+              private void loadServices(
+                      int businessId,
+                      String businessName) {
+
+                  base(businessName);
+
+                  TextView loading =
+                          new TextView(this);
+
+                  loading.setText(
+                          "در حال دریافت خدمات...");
+
+                  loading.setTextSize(18);
+                  loading.setGravity(Gravity.RIGHT);
+
+                  root.addView(loading);
+
+                  new Thread(() -> {
+
+                      try {
+
+                          String response =
+                                  request(
+                                          "services.php?business_id="
+                                                  + businessId,
+                                          "GET",
+                                          "",
+                                          prefs.getString(
+                                                  "token",
+                                                  ""));
+
+                          JSONObject json =
+                                  new JSONObject(response);
+
+                          JSONArray services =
+                                  json.optJSONArray("services");
+
+                          runOnUiThread(() -> {
+
+                              root.removeView(loading);
+
+                              if (services == null
+                                      || services.length() == 0) {
+
+                                  TextView empty =
+                                          new TextView(this);
+
+                                  empty.setText(
+                                          "برای این کسب‌وکار هنوز خدمتی ثبت نشده است.");
+
+                                  empty.setTextSize(17);
+                                  empty.setGravity(Gravity.RIGHT);
+
+                                  root.addView(empty);
+                                  return;
+                              }
+
+                              for (int i = 0;
+                                   i < services.length();
+                                   i++) {
+
+                                  try {
+
+                                      JSONObject service =
+                                              services.getJSONObject(i);
+
+                                      int serviceId =
+                                              service.optInt("id");
+
+                                      String serviceName =
+                                              service.optString(
+                                                      "name",
+                                                      "خدمت");
+
+                                      int price =
+                                              service.optInt("price");
+
+                                      int duration =
+                                              service.optInt(
+                                                      "duration_minutes");
+
+                                      Button b =
+                                              button(
+                                                      serviceName
+                                                              + "\n"
+                                                              + formatNumber(price)
+                                                              + " ریال"
+                                                              + " | "
+                                                              + duration
+                                                              + " دقیقه");
+
+                                      b.setOnClickListener(
+                                              v -> showBooking(
+                                                      businessId,
+                                                      serviceId,
+                                                      serviceName));
+
+                                  } catch (Exception ignored) {
+                                  }
+                              }
+                          });
+
+                      } catch (Exception e) {
+
+                          runOnUiThread(() ->
+                                  message(
+                                          "خطا در دریافت خدمات"));
+                      }
+
+                  }).start();
+              }
+
+              private void showBooking(
+                      int businessId,
+                      int serviceId,
+                      String serviceName) {
+
+                  base("رزرو نوبت");
+
+                  TextView selected =
+                          new TextView(this);
+
+                  selected.setText(
+                          "خدمت انتخاب‌شده:\n"
+                                  + serviceName);
+
+                  selected.setTextSize(20);
+                  selected.setTextColor(dark);
+                  selected.setGravity(Gravity.RIGHT);
+                  selected.setPadding(0, 0, 0, 25);
+
+                  root.addView(selected);
+
+                  EditText date =
+                          input("تاریخ میلادی: 2026-09-30");
+
+                  EditText time =
+                          input("ساعت شروع: 10:00");
+
+                  EditText notes =
+                          input("توضیحات - اختیاری");
+
+                  Button reserve =
+                          button("ثبت نوبت");
+
+                  reserve.setOnClickListener(v -> {
+
+                      String d =
+                              date.getText()
+                                      .toString()
+                                      .trim();
+
+                      String t =
+                              time.getText()
+                                      .toString()
+                                      .trim();
+
+                      if (d.isEmpty()
+                              || t.isEmpty()) {
+
+                          message(
+                                  "تاریخ و ساعت را وارد کنید");
+
+                          return;
+                      }
+
+                      reserve.setEnabled(false);
+
+                      new Thread(() -> {
+
+                          try {
+
+                              JSONObject data =
+                                      new JSONObject();
+
+                              data.put(
+                                      "business_id",
+                                      businessId);
+
+                              data.put(
+                                      "service_id",
+                                      serviceId);
+
+                              data.put(
+                                      "appointment_date",
+                                      d);
+
+                              data.put(
+                                      "start_time",
+                                      t);
+
+                              data.put(
+                                      "notes",
+                                      notes.getText()
+                                              .toString()
+                                              .trim());
+
+                              String response =
+                                      request(
+                                              "appointments.php",
+                                              "POST",
+                                              data.toString(),
+                                              prefs.getString(
+                                                      "token",
+                                                      ""));
+
+                              JSONObject json =
+                                      new JSONObject(response);
+
+                              if (json.optBoolean("ok")) {
+
+                                  runOnUiThread(() -> {
+
+                                      message(
+                                              "نوبت با موفقیت ثبت شد");
+
+                                      showHome();
+                                  });
+
+                              } else {
+
+                                  runOnUiThread(() ->
+                                          message(
+                                                  json.optString(
+                                                          "message",
+                                                          "ثبت نوبت ناموفق بود")));
+                              }
+
+                          } catch (Exception e) {
+
+                              runOnUiThread(() ->
+                                      message(
+                                              "خطا در ثبت نوبت"));
+                          }
+
+                          runOnUiThread(() ->
+                                  reserve.setEnabled(true));
+
+                      }).start();
+                  });
+              }
+
+              private void loadMyAppointments() {
+
+                  base("نوبت‌های من");
+
+                  TextView loading =
+                          new TextView(this);
+
+                  loading.setText(
+                          "در حال دریافت نوبت‌ها...");
+
+                  loading.setTextSize(18);
+                  loading.setGravity(Gravity.RIGHT);
+
+                  root.addView(loading);
+
+                  new Thread(() -> {
+
+                      try {
+
+                          String response =
+                                  request(
+                                          "appointments.php",
+                                          "GET",
+                                          "",
+                                          prefs.getString(
+                                                  "token",
+                                                  ""));
+
+                          JSONObject json =
+                                  new JSONObject(response);
+
+                          JSONArray appointments =
+                                  json.optJSONArray(
+                                          "appointments");
+
+                          runOnUiThread(() -> {
+
+                              root.removeView(loading);
+
+                              if (appointments == null
+                                      || appointments.length() == 0) {
+
+                                  TextView empty =
+                                          new TextView(this);
+
+                                  empty.setText(
+                                          "هنوز نوبتی ثبت نکرده‌اید.");
+
+                                  empty.setTextSize(18);
+                                  empty.setGravity(Gravity.RIGHT);
+
+                                  root.addView(empty);
+                                  return;
+                              }
+
+                              for (int i = 0;
+                                   i < appointments.length();
+                                   i++) {
+
+                                  try {
+
+                                      JSONObject a =
+                                              appointments.getJSONObject(i);
+
+                                      String date =
+                                              a.optString(
+                                                      "appointment_date");
+
+                                      String start =
+                                              a.optString(
+                                                      "start_time");
+
+                                      String end =
+                                              a.optString(
+                                                      "end_time");
+
+                                      String status =
+                                              a.optString(
+                                                      "status");
+
+                                      TextView item =
+                                              new TextView(this);
+
+                                      item.setText(
+                                              "📅 "
+                                                      + date
+                                                      + "\n⏰ "
+                                                      + start
+                                                      + " تا "
+                                                      + end
+                                                      + "\nوضعیت: "
+                                                      + status);
+
+                                      item.setTextSize(17);
+                                      item.setTextColor(dark);
+                                      item.setGravity(Gravity.RIGHT);
+                                      item.setPadding(
+                                              20,
+                                              25,
+                                              20,
+                                              25);
+
+                                      root.addView(item);
+
+                                  } catch (Exception ignored) {
+                                  }
+                              }
+                          });
+
+                      } catch (Exception e) {
+
+                          runOnUiThread(() ->
+                                  message(
+                                          "خطا در دریافت نوبت‌ها"));
+                      }
+
+                  }).start();
+              }
+
+              private void showProfile() {
+
+                  base("حساب کاربری");
+
+                  new Thread(() -> {
+
+                      try {
+
+                          String response =
+                                  request(
+                                          "me.php",
+                                          "GET",
+                                          "",
+                                          prefs.getString(
+                                                  "token",
+                                                  ""));
+
+                          JSONObject json =
+                                  new JSONObject(response);
+
+                          JSONObject user =
+                                  json.optJSONObject("user");
+
+                          runOnUiThread(() -> {
+
+                              if (user == null) {
+
+                                  message(
+                                          "اطلاعات حساب دریافت نشد");
+
+                                  return;
+                              }
+
+                              TextView info =
+                                      new TextView(this);
+
+                              info.setText(
+                                      "نام: "
+                                              + user.optString("name")
+                                              + "\n\nشماره موبایل: "
+                                              + user.optString("phone")
+                                              + "\n\nایمیل: "
+                                              + user.optString("email")
+                                              + "\n\nنقش: "
+                                              + user.optString("role"));
+
+                              info.setTextSize(18);
+                              info.setTextColor(dark);
+                              info.setGravity(Gravity.RIGHT);
+
+                              root.addView(info);
+
+                              Button back =
+                                      button("بازگشت");
+
+                              back.setOnClickListener(
+                                      v -> showHome());
+                          });
+
+                      } catch (Exception e) {
+
+                          runOnUiThread(() ->
+                                  message(
+                                          "خطا در دریافت حساب"));
+                      }
+
+                  }).start();
+              }
+
+              private String request(
+                      String endpoint,
+                      String method,
+                      String body,
+                      String token)
+                      throws Exception {
+
+                  URL url =
+                          new URL(API + endpoint);
+
+                  HttpURLConnection connection =
+                          (HttpURLConnection)
+                                  url.openConnection();
+
+                  connection.setRequestMethod(method);
+                  connection.setConnectTimeout(15000);
+                  connection.setReadTimeout(15000);
+                  connection.setRequestProperty(
+                          "Accept",
+                          "application/json");
+
+                  if (!token.isEmpty()) {
+
+                      connection.setRequestProperty(
+                              "Authorization",
+                              "Bearer " + token);
+                  }
+
+                  if (method.equals("POST")
+                          || method.equals("PUT")) {
+
+                      connection.setDoOutput(true);
+
+                      connection.setRequestProperty(
+                              "Content-Type",
+                              "application/json; charset=UTF-8");
+
+                      OutputStream os =
+                              connection.getOutputStream();
+
+                      os.write(
+                              body.getBytes(
+                                      StandardCharsets.UTF_8));
+
+                      os.flush();
+                      os.close();
+                  }
+
+                  int code =
+                          connection.getResponseCode();
+
+                  BufferedReader reader =
+                          new BufferedReader(
+                                  new InputStreamReader(
+                                          code >= 200
+                                                  && code < 400
+                                                  ? connection.getInputStream()
+                                                  : connection.getErrorStream(),
+                                          StandardCharsets.UTF_8));
+
+                  StringBuilder result =
+                          new StringBuilder();
+
+                  String line;
+
+                  while ((line = reader.readLine())
+                          != null) {
+
+                      result.append(line);
+                  }
+
+                  reader.close();
+
+                  return result.toString();
+              }
+
+              private String formatNumber(int value) {
+
+                  String s =
+                          String.valueOf(value);
+
+                  StringBuilder result =
+                          new StringBuilder();
+
+                  int count = 0;
+
+                  for (int i = s.length() - 1;
+                       i >= 0;
+                       i--) {
+
+                      if (count == 3) {
+
+                          result.insert(0, ",");
+
+                          count = 0;
+                      }
+
+                      result.insert(
+                              0,
+                              s.charAt(i));
+
+                      count++;
+                  }
+
+                  return result.toString();
               }
           }
           EOF
@@ -192,5 +1159,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nobatyar-apk
+          name: nobatyar-apk-v1-1
           path: app/build/outputs/apk/debug/app-debug.apk
+```
