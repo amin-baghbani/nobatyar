@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -20,6 +21,7 @@ jobs:
       - name: Install Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-35" \
@@ -32,6 +34,7 @@ jobs:
 
       - name: Create Android Project
         run: |
+
           mkdir -p app/src/main/java/ir/kalavira/nobatyar
           mkdir -p app/src/main/res/values
 
@@ -46,6 +49,7 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
               repositories {
                   google()
                   mavenCentral()
@@ -53,6 +57,7 @@ jobs:
           }
 
           rootProject.name = "Nobatyar"
+
           include(":app")
           EOF
 
@@ -69,13 +74,18 @@ jobs:
 
           android {
               namespace 'ir.kalavira.nobatyar'
+
               compileSdk 35
 
               defaultConfig {
                   applicationId 'ir.kalavira.nobatyar'
+
                   minSdk 24
+
                   targetSdk 35
+
                   versionCode 1
+
                   versionName '1.0'
               }
 
@@ -90,6 +100,7 @@ jobs:
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
+
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <application
@@ -103,8 +114,11 @@ jobs:
                       android:exported="true">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+
+                          <action android:name="android.intent.action.MAIN" />
+
+                          <category android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
@@ -116,13 +130,23 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
+
           <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+
+              <style
+                  name="AppTheme"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
                   <item name="android:fontFamily">sans</item>
+
                   <item name="android:windowLightStatusBar">true</item>
+
                   <item name="android:statusBarColor">#FFFFFF</item>
+
                   <item name="android:navigationBarColor">#FFFFFF</item>
+
               </style>
+
           </resources>
           EOF
 
@@ -140,31 +164,88 @@ jobs:
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
+
                   super.onCreate(savedInstanceState);
 
                   LinearLayout layout = new LinearLayout(this);
-                  layout.setOrientation(LinearLayout.VERTICAL);
-                  layout.setGravity(Gravity.CENTER);
-                  layout.setPadding(40, 40, 40, 40);
-                  layout.setBackgroundColor(Color.WHITE);
+
+                  layout.setOrientation(
+                      LinearLayout.VERTICAL
+                  );
+
+                  layout.setGravity(
+                      Gravity.CENTER
+                  );
+
+                  layout.setPadding(
+                      40,
+                      40,
+                      40,
+                      40
+                  );
+
+                  layout.setBackgroundColor(
+                      Color.WHITE
+                  );
 
                   TextView title = new TextView(this);
-                  title.setText("نوبت‌یار");
-                  title.setTextSize(32);
-                  title.setTextColor(Color.rgb(15, 23, 42));
-                  title.setGravity(Gravity.CENTER);
+
+                  title.setText(
+                      "نوبت‌یار"
+                  );
+
+                  title.setTextSize(
+                      32
+                  );
+
+                  title.setTextColor(
+                      Color.rgb(
+                          15,
+                          23,
+                          42
+                      )
+                  );
+
+                  title.setGravity(
+                      Gravity.CENTER
+                  );
 
                   TextView subtitle = new TextView(this);
-                  subtitle.setText("سامانه رزرو نوبت");
-                  subtitle.setTextSize(18);
-                  subtitle.setTextColor(Color.DKGRAY);
-                  subtitle.setGravity(Gravity.CENTER);
-                  subtitle.setPadding(0, 20, 0, 0);
 
-                  layout.addView(title);
-                  layout.addView(subtitle);
+                  subtitle.setText(
+                      "سامانه رزرو نوبت"
+                  );
 
-                  setContentView(layout);
+                  subtitle.setTextSize(
+                      18
+                  );
+
+                  subtitle.setTextColor(
+                      Color.DKGRAY
+                  );
+
+                  subtitle.setGravity(
+                      Gravity.CENTER
+                  );
+
+                  subtitle.setPadding(
+                      0,
+                      20,
+                      0,
+                      0
+                  );
+
+                  layout.addView(
+                      title
+                  );
+
+                  layout.addView(
+                      subtitle
+                  );
+
+                  setContentView(
+                      layout
+                  );
               }
           }
           EOF
@@ -173,8 +254,23 @@ jobs:
         run: |
           gradle assembleRelease --stacktrace
 
+      - name: Find APK
+        run: |
+          echo "================================"
+          echo "APK FILES"
+          echo "================================"
+
+          find . -type f -name "*.apk" -print
+
+          echo "================================"
+          echo "RELEASE DIRECTORY"
+          echo "================================"
+
+          ls -lah app/build/outputs/apk/release/ || true
+
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: nobatyar-release-apk
           path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
