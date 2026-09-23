@@ -1,7 +1,7 @@
 ```yaml
-name: Build Nobatyar APK
+name: "Nobatyar APK"
 
-on:
+'on':
   workflow_dispatch:
 
 jobs:
@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -30,10 +31,16 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Create Project
+      - name: Create Android Project
+        shell: bash
         run: |
+
+          rm -rf app
+          rm -f build.gradle settings.gradle gradlew gradlew.bat
+
           mkdir -p app/src/main/java/ir/kalavira/nobatyar
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -46,6 +53,7 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
               repositories {
                   google()
                   mavenCentral()
@@ -75,15 +83,36 @@ jobs:
                   applicationId 'ir.kalavira.nobatyar'
                   minSdk 24
                   targetSdk 35
-                  versionCode 2
-                  versionName '1.1'
+                  versionCode 10
+                  versionName "1.0.0"
               }
           }
           EOF
 
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+
+          <resources>
+
+              <style
+                  name="AppTheme"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">true</item>
+                  <item name="android:statusBarColor">#FFFFFF</item>
+                  <item name="android:navigationBarColor">#FFFFFF</item>
+
+              </style>
+
+          </resources>
+          EOF
+
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET"/>
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -96,11 +125,15 @@ jobs:
 
                   <activity
                       android:name=".MainActivity"
+                      android:screenOrientation="portrait"
                       android:exported="true">
 
                       <intent-filter>
+
                           <action android:name="android.intent.action.MAIN"/>
+
                           <category android:name="android.intent.category.LAUNCHER"/>
+
                       </intent-filter>
 
                   </activity>
@@ -108,18 +141,6 @@ jobs:
               </application>
 
           </manifest>
-          EOF
-
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">true</item>
-                  <item name="android:statusBarColor">#FFFFFF</item>
-                  <item name="android:navigationBarColor">#FFFFFF</item>
-              </style>
-          </resources>
           EOF
 
           cat > app/src/main/java/ir/kalavira/nobatyar/MainActivity.java <<'EOF'
@@ -131,237 +152,185 @@ jobs:
           import android.graphics.Color;
           import android.graphics.Typeface;
           import android.view.Gravity;
-          import android.widget.Button;
-          import android.widget.EditText;
-          import android.widget.LinearLayout;
-          import android.widget.ScrollView;
-          import android.widget.TextView;
-          import android.widget.Toast;
+          import android.view.View;
+          import android.widget.*;
 
           import org.json.JSONArray;
           import org.json.JSONObject;
 
           import java.io.BufferedReader;
+          import java.io.InputStream;
           import java.io.InputStreamReader;
           import java.io.OutputStream;
           import java.net.HttpURLConnection;
           import java.net.URL;
-          import java.nio.charset.StandardCharsets;
+          import java.net.URLEncoder;
 
           public class MainActivity extends Activity {
 
-              private static final String API =
-                      "https://kalavira.ir/api/";
+              private final String API = "https://kalavira.ir/api/";
 
-              private SharedPreferences prefs;
               private LinearLayout root;
+              private SharedPreferences prefs;
 
-              private final int dark =
-                      Color.rgb(15, 23, 42);
-
-              private final int blue =
-                      Color.rgb(37, 99, 235);
-
-              private final int light =
-                      Color.rgb(248, 250, 252);
+              private int dark = Color.rgb(15,23,42);
+              private int blue = Color.rgb(37,99,235);
+              private int light = Color.rgb(248,250,252);
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
 
-                  prefs = getSharedPreferences(
-                          "nobatyar",
-                          MODE_PRIVATE);
+                  prefs = getSharedPreferences("nobatyar", MODE_PRIVATE);
 
-                  if (prefs.getString("token", "").isEmpty()) {
-                      showLogin();
-                  } else {
-                      showHome();
-                  }
+                  showStart();
               }
 
-              private void base(String titleText) {
+              private TextView text(String value, float size) {
+
+                  TextView t = new TextView(this);
+
+                  t.setText(value);
+                  t.setTextSize(size);
+                  t.setTextColor(dark);
+                  t.setPadding(24,20,24,20);
+
+                  return t;
+              }
+
+              private Button button(String value) {
+
+                  Button b = new Button(this);
+
+                  b.setText(value);
+                  b.setTextSize(16);
+                  b.setTextColor(Color.WHITE);
+                  b.setBackgroundColor(blue);
+
+                  return b;
+              }
+
+              private EditText input(String hint) {
+
+                  EditText e = new EditText(this);
+
+                  e.setHint(hint);
+                  e.setTextSize(16);
+                  e.setPadding(24,18,24,18);
+
+                  return e;
+              }
+
+              private void base() {
 
                   root = new LinearLayout(this);
-                  root.setOrientation(
-                          LinearLayout.VERTICAL);
 
-                  root.setPadding(
-                          30,
-                          35,
-                          30,
-                          30);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(30,40,30,30);
+                  root.setBackgroundColor(Color.WHITE);
 
-                  root.setBackgroundColor(light);
-                  root.setGravity(Gravity.RIGHT);
-
-                  TextView title =
-                          new TextView(this);
-
-                  title.setText(titleText);
-                  title.setTextSize(28);
-                  title.setTypeface(
-                          Typeface.DEFAULT,
-                          Typeface.BOLD);
-
-                  title.setTextColor(dark);
-                  title.setGravity(Gravity.RIGHT);
-                  title.setPadding(
-                          0,
-                          0,
-                          0,
-                          30);
-
-                  root.addView(title);
-
-                  ScrollView scroll =
-                          new ScrollView(this);
+                  ScrollView scroll = new ScrollView(this);
 
                   scroll.addView(root);
 
                   setContentView(scroll);
               }
 
-              private EditText input(String hint) {
+              private void showStart() {
 
-                  EditText e =
-                          new EditText(this);
-
-                  e.setHint(hint);
-                  e.setTextSize(17);
-                  e.setSingleLine(true);
-                  e.setGravity(Gravity.RIGHT);
-
-                  LinearLayout.LayoutParams p =
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  -2);
-
-                  p.setMargins(0, 0, 0, 18);
-
-                  e.setLayoutParams(p);
-
-                  root.addView(e);
-
-                  return e;
-              }
-
-              private Button button(String text) {
-
-                  Button b =
-                          new Button(this);
-
-                  b.setText(text);
-                  b.setTextSize(17);
-                  b.setTextColor(Color.WHITE);
-                  b.setBackgroundColor(blue);
-
-                  LinearLayout.LayoutParams p =
-                          new LinearLayout.LayoutParams(
-                                  -1,
-                                  -2);
-
-                  p.setMargins(0, 0, 0, 15);
-
-                  b.setLayoutParams(p);
-
-                  root.addView(b);
-
-                  return b;
-              }
-
-              private void message(String text) {
-
-                  Toast.makeText(
-                          this,
-                          text,
-                          Toast.LENGTH_LONG)
-                          .show();
+                  if (prefs.getString("token", "").length() > 0) {
+                      showHome();
+                  } else {
+                      showLogin();
+                  }
               }
 
               private void showLogin() {
 
-                  base("ورود به نوبت‌یار");
+                  base();
 
-                  TextView sub =
-                          new TextView(this);
+                  Space space = new Space(this);
 
-                  sub.setText(
-                          "برای رزرو نوبت وارد حساب خود شوید");
+                  root.addView(space,
+                          new LinearLayout.LayoutParams(
+                                  1,80));
 
-                  sub.setTextSize(17);
-                  sub.setGravity(Gravity.RIGHT);
+                  TextView title = text("نوبت‌یار",34);
+
+                  title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
+
+                  TextView sub = text(
+                          "سامانه رزرو آنلاین نوبت",
+                          18);
+
+                  sub.setGravity(Gravity.CENTER);
 
                   root.addView(sub);
 
-                  EditText phone =
-                          input("شماره موبایل");
+                  EditText phone = input("شماره موبایل");
 
-                  EditText password =
-                          input("رمز عبور");
+                  root.addView(phone);
 
-                  password.setInputType(129);
+                  EditText password = input("رمز عبور");
 
-                  Button login =
-                          button("ورود");
+                  password.setInputType(
+                          0x00000081);
+
+                  root.addView(password);
+
+                  Button login = button("ورود");
+
+                  root.addView(login);
+
+                  Button register = button("ثبت‌نام");
+
+                  root.addView(register);
+
+                  TextView status = text("",15);
+
+                  root.addView(status);
 
                   login.setOnClickListener(v -> {
 
-                      String p =
-                              phone.getText()
-                                      .toString()
-                                      .trim();
+                      String p = phone.getText().toString().trim();
+                      String pass = password.getText().toString();
 
-                      String pass =
-                              password.getText()
-                                      .toString();
+                      if(p.isEmpty() || pass.isEmpty()) {
 
-                      if (p.isEmpty()
-                              || pass.isEmpty()) {
-
-                          message(
-                                  "شماره موبایل و رمز عبور را وارد کنید");
+                          status.setText(
+                                  "شماره موبایل و رمز عبور را وارد کنید.");
 
                           return;
                       }
 
-                      login.setEnabled(false);
+                      status.setText("در حال ورود...");
 
                       new Thread(() -> {
 
                           try {
 
-                              JSONObject data =
-                                      new JSONObject();
+                              JSONObject body = new JSONObject();
 
-                              data.put(
-                                      "action",
-                                      "login");
+                              body.put("action","login");
+                              body.put("phone",p);
+                              body.put("password",pass);
 
-                              data.put(
-                                      "phone",
-                                      p);
-
-                              data.put(
-                                      "password",
-                                      pass);
-
-                              String response =
-                                      request(
-                                              "auth.php",
-                                              "POST",
-                                              data.toString(),
-                                              "");
+                              String result =
+                                      post("auth.php",body.toString());
 
                               JSONObject json =
-                                      new JSONObject(response);
+                                      new JSONObject(result);
 
-                              if (json.optBoolean("ok")) {
+                              if(json.optBoolean("ok")) {
+
+                                  String token =
+                                          json.optString("token");
 
                                   prefs.edit()
-                                          .putString(
-                                                  "token",
-                                                  json.optString("token"))
+                                          .putString("token",token)
                                           .apply();
 
                                   runOnUiThread(
@@ -370,30 +339,21 @@ jobs:
                               } else {
 
                                   runOnUiThread(() ->
-                                          message(
+                                          status.setText(
                                                   json.optString(
                                                           "message",
-                                                          "ورود ناموفق بود")));
+                                                          "ورود ناموفق بود.")));
                               }
 
-                          } catch (Exception e) {
+                          } catch(Exception e) {
 
                               runOnUiThread(() ->
-                                      message(
+                                      status.setText(
                                               "خطا در ارتباط با سرور"));
                           }
 
-                          runOnUiThread(() ->
-                                  login.setEnabled(true));
-
                       }).start();
                   });
-
-                  Button register =
-                          button("ثبت‌نام");
-
-                  register.setBackgroundColor(
-                          Color.DKGRAY);
 
                   register.setOnClickListener(
                           v -> showRegister());
@@ -401,112 +361,129 @@ jobs:
 
               private void showRegister() {
 
-                  base("ثبت‌نام");
+                  base();
+
+                  TextView title =
+                          text("ثبت‌نام در نوبت‌یار",28);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
 
                   EditText name =
                           input("نام و نام خانوادگی");
 
+                  root.addView(name);
+
                   EditText phone =
                           input("شماره موبایل");
+
+                  root.addView(phone);
 
                   EditText email =
                           input("ایمیل - اختیاری");
 
+                  root.addView(email);
+
                   EditText password =
                           input("رمز عبور");
 
-                  password.setInputType(129);
+                  password.setInputType(0x00000081);
+
+                  root.addView(password);
 
                   Button register =
                           button("ایجاد حساب");
 
+                  root.addView(register);
+
+                  Button back =
+                          button("بازگشت به ورود");
+
+                  root.addView(back);
+
+                  TextView status =
+                          text("",15);
+
+                  root.addView(status);
+
                   register.setOnClickListener(v -> {
 
-                      if (name.getText().toString().trim().isEmpty()
-                              || phone.getText().toString().trim().isEmpty()
-                              || password.getText().toString().isEmpty()) {
+                      String n =
+                              name.getText().toString().trim();
 
-                          message(
-                                  "نام، شماره موبایل و رمز عبور الزامی است");
+                      String p =
+                              phone.getText().toString().trim();
+
+                      String e =
+                              email.getText().toString().trim();
+
+                      String pass =
+                              password.getText().toString();
+
+                      if(n.isEmpty() ||
+                         p.isEmpty() ||
+                         pass.isEmpty()) {
+
+                          status.setText(
+                                  "نام، موبایل و رمز عبور الزامی است.");
 
                           return;
                       }
+
+                      status.setText("در حال ثبت‌نام...");
 
                       new Thread(() -> {
 
                           try {
 
-                              JSONObject data =
+                              JSONObject body =
                                       new JSONObject();
 
-                              data.put(
-                                      "action",
-                                      "register");
+                              body.put("action","register");
+                              body.put("name",n);
+                              body.put("phone",p);
+                              body.put("email",e);
+                              body.put("password",pass);
 
-                              data.put(
-                                      "name",
-                                      name.getText().toString().trim());
-
-                              data.put(
-                                      "phone",
-                                      phone.getText().toString().trim());
-
-                              data.put(
-                                      "email",
-                                      email.getText().toString().trim());
-
-                              data.put(
-                                      "password",
-                                      password.getText().toString());
-
-                              data.put(
-                                      "role",
-                                      "customer");
-
-                              String response =
-                                      request(
+                              String result =
+                                      post(
                                               "auth.php",
-                                              "POST",
-                                              data.toString(),
-                                              "");
+                                              body.toString());
 
                               JSONObject json =
-                                      new JSONObject(response);
+                                      new JSONObject(result);
 
-                              if (json.optBoolean("ok")) {
+                              runOnUiThread(() -> {
 
-                                  prefs.edit()
-                                          .putString(
-                                                  "token",
-                                                  json.optString("token"))
-                                          .apply();
+                                  if(json.optBoolean("ok")) {
 
-                                  runOnUiThread(
-                                          this::showHome);
+                                      Toast.makeText(
+                                              this,
+                                              "ثبت‌نام با موفقیت انجام شد",
+                                              Toast.LENGTH_LONG).show();
 
-                              } else {
+                                      showLogin();
 
-                                  runOnUiThread(() ->
-                                          message(
-                                                  json.optString(
-                                                          "message",
-                                                          "ثبت‌نام انجام نشد")));
-                              }
+                                  } else {
 
-                          } catch (Exception e) {
+                                      status.setText(
+                                              json.optString(
+                                                      "message",
+                                                      "ثبت‌نام ناموفق بود."));
+                                  }
+
+                              });
+
+                          } catch(Exception ex) {
 
                               runOnUiThread(() ->
-                                      message(
+                                      status.setText(
                                               "خطا در ارتباط با سرور"));
                           }
+
                       }).start();
                   });
-
-                  Button back =
-                          button("بازگشت");
-
-                  back.setBackgroundColor(
-                          Color.DKGRAY);
 
                   back.setOnClickListener(
                           v -> showLogin());
@@ -514,72 +491,80 @@ jobs:
 
               private void showHome() {
 
-                  base("نوبت‌یار");
+                  base();
+
+                  TextView title =
+                          text("نوبت‌یار",30);
+
+                  title.setTypeface(
+                          Typeface.DEFAULT,
+                          Typeface.BOLD);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
 
                   TextView welcome =
-                          new TextView(this);
+                          text(
+                                  "به سامانه رزرو نوبت خوش آمدید",
+                                  17);
 
-                  welcome.setText(
-                          "به نوبت‌یار خوش آمدید\n\n"
-                                  + "کسب‌وکار موردنظر را انتخاب کنید و نوبت خود را رزرو کنید.");
-
-                  welcome.setTextSize(18);
-                  welcome.setTextColor(dark);
-                  welcome.setGravity(Gravity.RIGHT);
-                  welcome.setPadding(
-                          0,
-                          0,
-                          0,
-                          30);
+                  welcome.setGravity(Gravity.CENTER);
 
                   root.addView(welcome);
 
                   Button businesses =
-                          button("🏢 مشاهده کسب‌وکارها");
+                          button("🏢 مشاهده مراکز");
 
-                  businesses.setOnClickListener(
-                          v -> loadBusinesses());
+                  root.addView(businesses);
 
                   Button appointments =
                           button("📅 نوبت‌های من");
 
-                  appointments.setOnClickListener(
-                          v -> loadMyAppointments());
+                  root.addView(appointments);
 
                   Button profile =
-                          button("👤 حساب کاربری");
+                          button("👤 پروفایل من");
+
+                  root.addView(profile);
+
+                  Button logout =
+                          button("🚪 خروج");
+
+                  root.addView(logout);
+
+                  businesses.setOnClickListener(
+                          v -> showBusinesses());
+
+                  appointments.setOnClickListener(
+                          v -> showMyAppointments());
 
                   profile.setOnClickListener(
                           v -> showProfile());
 
-                  Button logout =
-                          button("خروج از حساب");
-
-                  logout.setBackgroundColor(
-                          Color.DKGRAY);
-
                   logout.setOnClickListener(v -> {
 
                       prefs.edit()
-                              .clear()
+                              .remove("token")
                               .apply();
 
                       showLogin();
                   });
               }
 
-              private void loadBusinesses() {
+              private void showBusinesses() {
 
-                  base("کسب‌وکارها");
+                  base();
+
+                  TextView title =
+                          text("مراکز فعال",28);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
 
                   TextView loading =
-                          new TextView(this);
-
-                  loading.setText(
-                          "در حال دریافت اطلاعات...");
-
-                  loading.setTextSize(18);
-                  loading.setGravity(Gravity.RIGHT);
+                          text("در حال دریافت مراکز...",16);
 
                   root.addView(loading);
 
@@ -587,98 +572,100 @@ jobs:
 
                       try {
 
-                          String response =
-                                  request(
-                                          "bussineses.php",
-                                          "GET",
-                                          "",
-                                          "");
+                          String result =
+                                  get("bussineses.php");
 
                           JSONObject json =
-                                  new JSONObject(response);
+                                  new JSONObject(result);
 
-                          JSONArray items =
-                                  json.optJSONArray(
-                                          "businesses");
+                          JSONArray data =
+                                  json.optJSONArray("businesses");
 
                           runOnUiThread(() -> {
 
                               root.removeView(loading);
 
-                              if (items == null
-                                      || items.length() == 0) {
+                              if(data == null ||
+                                 data.length() == 0) {
 
-                                  TextView empty =
-                                          new TextView(this);
-
-                                  empty.setText(
-                                          "کسب‌وکار فعالی پیدا نشد.");
-
-                                  empty.setTextSize(18);
-                                  empty.setGravity(
-                                          Gravity.RIGHT);
-
-                                  root.addView(empty);
+                                  root.addView(
+                                          text(
+                                                  "مرکز فعالی پیدا نشد.",
+                                                  17));
 
                                   return;
                               }
 
-                              for (int i = 0;
-                                   i < items.length();
-                                   i++) {
+                              for(int i=0;
+                                  i<data.length();
+                                  i++) {
 
                                   try {
 
-                                      JSONObject item =
-                                              items.getJSONObject(i);
+                                      JSONObject b =
+                                              data.getJSONObject(i);
 
                                       int id =
-                                              item.optInt("id");
+                                              b.getInt("id");
 
                                       String name =
-                                              item.optString(
+                                              b.optString(
                                                       "name",
-                                                      "کسب‌وکار");
+                                                      "مرکز");
 
-                                      Button b =
-                                              button(
-                                                      "🏢 " + name);
+                                      Button item =
+                                              button(name);
 
-                                      b.setOnClickListener(
-                                              v -> loadServices(
-                                                      id,
-                                                      name));
+                                      root.addView(item);
 
-                                  } catch (Exception ignored) {
-                                  }
+                                      item.setOnClickListener(
+                                              v ->
+                                                      showServices(
+                                                              id,
+                                                              name));
+
+                                  } catch(Exception ignored) {}
                               }
+
+                              Button back =
+                                      button("بازگشت");
+
+                              root.addView(back);
+
+                              back.setOnClickListener(
+                                      v -> showHome());
                           });
 
-                      } catch (Exception e) {
+                      } catch(Exception e) {
 
                           runOnUiThread(() ->
-                                  message(
-                                          "خطا در دریافت کسب‌وکارها"));
+                                  loading.setText(
+                                          "خطا در دریافت مراکز"));
                       }
 
                   }).start();
               }
 
-              private void loadServices(
+              private void showServices(
                       int businessId,
                       String businessName) {
 
-                  base(businessName);
+                  base();
+
+                  TextView title =
+                          text(
+                                  businessName +
+                                  "\nخدمات",
+                                  26);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
 
                   TextView loading =
-                          new TextView(this);
-
-                  loading.setText(
-                          "در حال دریافت خدمات...");
-
-                  loading.setTextSize(18);
-                  loading.setGravity(
-                          Gravity.RIGHT);
+                          text(
+                                  "در حال دریافت خدمات...",
+                                  16);
 
                   root.addView(loading);
 
@@ -686,95 +673,88 @@ jobs:
 
                       try {
 
-                          String response =
-                                  request(
+                          String result =
+                                  get(
                                           "services.php?business_id="
-                                                  + businessId,
-                                          "GET",
-                                          "",
-                                          prefs.getString(
-                                                  "token",
-                                                  ""));
+                                          + businessId);
 
                           JSONObject json =
-                                  new JSONObject(response);
+                                  new JSONObject(result);
 
-                          JSONArray services =
-                                  json.optJSONArray(
-                                          "services");
+                          JSONArray data =
+                                  json.optJSONArray("services");
 
                           runOnUiThread(() -> {
 
                               root.removeView(loading);
 
-                              if (services == null
-                                      || services.length() == 0) {
+                              if(data == null ||
+                                 data.length() == 0) {
 
-                                  TextView empty =
-                                          new TextView(this);
-
-                                  empty.setText(
-                                          "برای این کسب‌وکار خدمتی ثبت نشده است.");
-
-                                  empty.setTextSize(17);
-                                  empty.setGravity(
-                                          Gravity.RIGHT);
-
-                                  root.addView(empty);
+                                  root.addView(
+                                          text(
+                                                  "خدمتی ثبت نشده است.",
+                                                  17));
 
                                   return;
                               }
 
-                              for (int i = 0;
-                                   i < services.length();
-                                   i++) {
+                              for(int i=0;
+                                  i<data.length();
+                                  i++) {
 
                                   try {
 
-                                      JSONObject service =
-                                              services.getJSONObject(i);
+                                      JSONObject s =
+                                              data.getJSONObject(i);
 
                                       int serviceId =
-                                              service.optInt("id");
+                                              s.getInt("id");
 
                                       String serviceName =
-                                              service.optString(
+                                              s.optString(
                                                       "name",
                                                       "خدمت");
 
                                       int price =
-                                              service.optInt(
-                                                      "price");
+                                              s.optInt(
+                                                      "price",
+                                                      0);
 
-                                      int duration =
-                                              service.optInt(
-                                                      "duration_minutes");
+                                      String label =
+                                              serviceName +
+                                              "\nقیمت: " +
+                                              price +
+                                              " ریال";
 
-                                      Button b =
-                                              button(
-                                                      serviceName
-                                                              + "\n"
-                                                              + formatNumber(price)
-                                                              + " ریال"
-                                                              + " | "
-                                                              + duration
-                                                              + " دقیقه");
+                                      Button item =
+                                              button(label);
 
-                                      b.setOnClickListener(
-                                              v -> showBooking(
-                                                      businessId,
-                                                      serviceId,
-                                                      serviceName));
+                                      root.addView(item);
 
-                                  } catch (Exception ignored) {
-                                  }
+                                      item.setOnClickListener(
+                                              v ->
+                                                      showBooking(
+                                                              businessId,
+                                                              serviceId,
+                                                              serviceName));
+
+                                  } catch(Exception ignored) {}
                               }
+
+                              Button back =
+                                      button("بازگشت");
+
+                              root.addView(back);
+
+                              back.setOnClickListener(
+                                      v -> showBusinesses());
                           });
 
-                      } catch (Exception e) {
+                      } catch(Exception e) {
 
                           runOnUiThread(() ->
-                                  message(
+                                  loading.setText(
                                           "خطا در دریافت خدمات"));
                       }
 
@@ -786,221 +766,253 @@ jobs:
                       int serviceId,
                       String serviceName) {
 
-                  base("رزرو نوبت");
+                  base();
 
-                  TextView selected =
-                          new TextView(this);
+                  TextView title =
+                          text(
+                                  "رزرو نوبت\n" +
+                                  serviceName,
+                                  26);
 
-                  selected.setText(
-                          "خدمت:\n"
-                                  + serviceName);
+                  title.setGravity(Gravity.CENTER);
 
-                  selected.setTextSize(20);
-                  selected.setTextColor(dark);
-                  selected.setGravity(
-                          Gravity.RIGHT);
-
-                  root.addView(selected);
+                  root.addView(title);
 
                   EditText date =
                           input(
-                                  "تاریخ: 2026-09-30");
+                                  "تاریخ میلادی مثال: 2026-10-01");
+
+                  root.addView(date);
 
                   EditText time =
                           input(
-                                  "ساعت: 10:00");
+                                  "ساعت شروع مثال: 10:00:00");
+
+                  root.addView(time);
 
                   EditText notes =
-                          input(
-                                  "توضیحات - اختیاری");
+                          input("توضیحات - اختیاری");
 
-                  Button reserve =
+                  root.addView(notes);
+
+                  Button book =
                           button("ثبت نوبت");
 
-                  reserve.setOnClickListener(v -> {
+                  root.addView(book);
+
+                  Button back =
+                          button("بازگشت");
+
+                  root.addView(back);
+
+                  TextView status =
+                          text("",16);
+
+                  root.addView(status);
+
+                  book.setOnClickListener(v -> {
 
                       String d =
-                              date.getText()
-                                      .toString()
-                                      .trim();
+                              date.getText().toString().trim();
 
                       String t =
-                              time.getText()
-                                      .toString()
-                                      .trim();
+                              time.getText().toString().trim();
 
-                      if (d.isEmpty()
-                              || t.isEmpty()) {
+                      String n =
+                              notes.getText().toString().trim();
 
-                          message(
-                                  "تاریخ و ساعت را وارد کنید");
+                      if(d.isEmpty() || t.isEmpty()) {
+
+                          status.setText(
+                                  "تاریخ و ساعت را وارد کنید.");
 
                           return;
                       }
+
+                      status.setText("در حال ثبت نوبت...");
 
                       new Thread(() -> {
 
                           try {
 
-                              JSONObject data =
+                              JSONObject body =
                                       new JSONObject();
 
-                              data.put(
+                              body.put(
                                       "business_id",
                                       businessId);
 
-                              data.put(
+                              body.put(
                                       "service_id",
                                       serviceId);
 
-                              data.put(
+                              body.put(
                                       "appointment_date",
                                       d);
 
-                              data.put(
+                              body.put(
                                       "start_time",
                                       t);
 
-                              data.put(
+                              body.put(
                                       "notes",
-                                      notes.getText()
-                                              .toString()
-                                              .trim());
+                                      n);
 
-                              String response =
-                                      request(
+                              String result =
+                                      postAuth(
                                               "appointments.php",
-                                              "POST",
-                                              data.toString(),
-                                              prefs.getString(
-                                                      "token",
-                                                      ""));
+                                              body.toString());
 
                               JSONObject json =
-                                      new JSONObject(response);
+                                      new JSONObject(result);
 
-                              if (json.optBoolean("ok")) {
+                              runOnUiThread(() -> {
 
-                                  runOnUiThread(() -> {
+                                  if(json.optBoolean("ok")) {
 
-                                      message(
-                                              "نوبت با موفقیت ثبت شد");
+                                      status.setText(
+                                              "✅ نوبت با موفقیت ثبت شد.");
 
-                                      showHome();
-                                  });
+                                  } else {
 
-                              } else {
+                                      status.setText(
+                                              json.optString(
+                                                      "message",
+                                                      "ثبت نوبت ناموفق بود."));
+                                  }
+                              });
 
-                                  runOnUiThread(() ->
-                                          message(
-                                                  json.optString(
-                                                          "message",
-                                                          "ثبت نوبت ناموفق بود")));
-                              }
-
-                          } catch (Exception e) {
+                          } catch(Exception e) {
 
                               runOnUiThread(() ->
-                                      message(
-                                              "خطا در ثبت نوبت"));
+                                      status.setText(
+                                              "خطا در ارتباط با سرور"));
                           }
 
                       }).start();
                   });
+
+                  back.setOnClickListener(
+                          v -> showServices(
+                                  businessId,
+                                  businessNameFromService(serviceName)));
               }
 
-              private void loadMyAppointments() {
+              private int businessNameFromService(
+                      String serviceName) {
 
-                  base("نوبت‌های من");
+                  return 0;
+              }
+
+              private void showMyAppointments() {
+
+                  base();
+
+                  TextView title =
+                          text("نوبت‌های من",28);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
+
+                  TextView loading =
+                          text(
+                                  "در حال دریافت نوبت‌ها...",
+                                  16);
+
+                  root.addView(loading);
 
                   new Thread(() -> {
 
                       try {
 
-                          String response =
-                                  request(
-                                          "appointments.php",
-                                          "GET",
-                                          "",
-                                          prefs.getString(
-                                                  "token",
-                                                  ""));
+                          String result =
+                                  getAuth("appointments.php");
 
                           JSONObject json =
-                                  new JSONObject(response);
+                                  new JSONObject(result);
 
-                          JSONArray appointments =
+                          JSONArray data =
                                   json.optJSONArray(
                                           "appointments");
 
                           runOnUiThread(() -> {
 
-                              if (appointments == null
-                                      || appointments.length() == 0) {
+                              root.removeView(loading);
 
-                                  TextView empty =
-                                          new TextView(this);
+                              if(data == null ||
+                                 data.length() == 0) {
 
-                                  empty.setText(
-                                          "هنوز نوبتی ندارید.");
+                                  root.addView(
+                                          text(
+                                                  "هنوز نوبتی ندارید.",
+                                                  18));
 
-                                  empty.setTextSize(18);
-                                  empty.setGravity(
-                                          Gravity.RIGHT);
+                              } else {
 
-                                  root.addView(empty);
+                                  for(int i=0;
+                                      i<data.length();
+                                      i++) {
 
-                                  return;
-                              }
+                                      try {
 
-                              for (int i = 0;
-                                   i < appointments.length();
-                                   i++) {
+                                          JSONObject a =
+                                                  data.getJSONObject(i);
 
-                                  try {
+                                          String date =
+                                                  a.optString(
+                                                          "appointment_date",
+                                                          "");
 
-                                      JSONObject a =
-                                              appointments.getJSONObject(i);
+                                          String start =
+                                                  a.optString(
+                                                          "start_time",
+                                                          "");
 
-                                      TextView item =
-                                              new TextView(this);
+                                          String status =
+                                                  a.optString(
+                                                          "status",
+                                                          "");
 
-                                      item.setText(
-                                              "📅 "
-                                                      + a.optString(
-                                                              "appointment_date")
-                                                      + "\n⏰ "
-                                                      + a.optString(
-                                                              "start_time")
-                                                      + " تا "
-                                                      + a.optString(
-                                                              "end_time")
-                                                      + "\nوضعیت: "
-                                                      + a.optString(
-                                                              "status"));
+                                          String service =
+                                                  a.optString(
+                                                          "service_name",
+                                                          "خدمت");
 
-                                      item.setTextSize(17);
-                                      item.setTextColor(dark);
-                                      item.setGravity(
-                                              Gravity.RIGHT);
+                                          TextView item =
+                                                  text(
+                                                          "خدمت: " +
+                                                          service +
+                                                          "\nتاریخ: " +
+                                                          date +
+                                                          "\nساعت: " +
+                                                          start +
+                                                          "\nوضعیت: " +
+                                                          status,
+                                                          16);
 
-                                      item.setPadding(
-                                              20,
-                                              25,
-                                              20,
-                                              25);
+                                          item.setBackgroundColor(
+                                                  light);
 
-                                      root.addView(item);
+                                          root.addView(item);
 
-                                  } catch (Exception ignored) {
+                                      } catch(Exception ignored) {}
                                   }
                               }
+
+                              Button back =
+                                      button("بازگشت");
+
+                              root.addView(back);
+
+                              back.setOnClickListener(
+                                      v -> showHome());
                           });
 
-                      } catch (Exception e) {
+                      } catch(Exception e) {
 
                           runOnUiThread(() ->
-                                  message(
+                                  loading.setText(
                                           "خطا در دریافت نوبت‌ها"));
                       }
 
@@ -1009,139 +1021,217 @@ jobs:
 
               private void showProfile() {
 
-                  base("حساب کاربری");
+                  base();
+
+                  TextView title =
+                          text("پروفایل من",28);
+
+                  title.setGravity(Gravity.CENTER);
+
+                  root.addView(title);
+
+                  TextView loading =
+                          text(
+                                  "در حال دریافت اطلاعات...",
+                                  16);
+
+                  root.addView(loading);
 
                   new Thread(() -> {
 
                       try {
 
-                          String response =
-                                  request(
-                                          "me.php",
-                                          "GET",
-                                          "",
-                                          prefs.getString(
-                                                  "token",
-                                                  ""));
+                          String result =
+                                  getAuth("me.php");
 
                           JSONObject json =
-                                  new JSONObject(response);
+                                  new JSONObject(result);
 
                           JSONObject user =
-                                  json.optJSONObject(
-                                          "user");
+                                  json.optJSONObject("user");
 
                           runOnUiThread(() -> {
 
-                              if (user == null) {
+                              root.removeView(loading);
 
-                                  message(
-                                          "اطلاعات حساب دریافت نشد");
+                              if(user != null) {
 
-                                  return;
+                                  root.addView(
+                                          text(
+                                                  "نام: " +
+                                                  user.optString(
+                                                          "name",
+                                                          "") +
+                                                  "\n\nموبایل: " +
+                                                  user.optString(
+                                                          "phone",
+                                                          "") +
+                                                  "\n\nایمیل: " +
+                                                  user.optString(
+                                                          "email",
+                                                          "") +
+                                                  "\n\nنقش: " +
+                                                  user.optString(
+                                                          "role",
+                                                          ""),
+                                                  18));
                               }
 
-                              TextView info =
-                                      new TextView(this);
+                              Button back =
+                                      button("بازگشت");
 
-                              info.setText(
-                                      "نام: "
-                                              + user.optString("name")
-                                              + "\n\nشماره موبایل: "
-                                              + user.optString("phone")
-                                              + "\n\nایمیل: "
-                                              + user.optString("email")
-                                              + "\n\nنقش: "
-                                              + user.optString("role"));
+                              root.addView(back);
 
-                              info.setTextSize(18);
-                              info.setTextColor(dark);
-                              info.setGravity(
-                                      Gravity.RIGHT);
-
-                              root.addView(info);
+                              back.setOnClickListener(
+                                      v -> showHome());
                           });
 
-                      } catch (Exception e) {
+                      } catch(Exception e) {
 
                           runOnUiThread(() ->
-                                  message(
-                                          "خطا در دریافت حساب"));
+                                  loading.setText(
+                                          "خطا در دریافت اطلاعات"));
                       }
 
                   }).start();
               }
 
-              private String request(
-                      String endpoint,
-                      String method,
-                      String body,
-                      String token)
-                      throws Exception {
+              private String get(
+                      String endpoint) throws Exception {
 
                   URL url =
-                          new URL(
-                                  API + endpoint);
+                          new URL(API + endpoint);
 
                   HttpURLConnection c =
                           (HttpURLConnection)
                                   url.openConnection();
 
-                  c.setRequestMethod(method);
+                  c.setRequestMethod("GET");
+                  c.setConnectTimeout(15000);
+                  c.setReadTimeout(15000);
+
+                  return read(c);
+              }
+
+              private String getAuth(
+                      String endpoint) throws Exception {
+
+                  URL url =
+                          new URL(API + endpoint);
+
+                  HttpURLConnection c =
+                          (HttpURLConnection)
+                                  url.openConnection();
+
+                  c.setRequestMethod("GET");
                   c.setConnectTimeout(15000);
                   c.setReadTimeout(15000);
 
                   c.setRequestProperty(
-                          "Accept",
-                          "application/json");
+                          "Authorization",
+                          "Bearer " +
+                          prefs.getString(
+                                  "token",
+                                  ""));
 
-                  if (!token.isEmpty()) {
+                  return read(c);
+              }
 
-                      c.setRequestProperty(
-                              "Authorization",
-                              "Bearer " + token);
+              private String post(
+                      String endpoint,
+                      String json) throws Exception {
+
+                  URL url =
+                          new URL(API + endpoint);
+
+                  HttpURLConnection c =
+                          (HttpURLConnection)
+                                  url.openConnection();
+
+                  c.setRequestMethod("POST");
+                  c.setDoOutput(true);
+
+                  c.setRequestProperty(
+                          "Content-Type",
+                          "application/json; charset=UTF-8");
+
+                  c.setConnectTimeout(15000);
+                  c.setReadTimeout(15000);
+
+                  OutputStream os =
+                          c.getOutputStream();
+
+                  os.write(
+                          json.getBytes("UTF-8"));
+
+                  os.close();
+
+                  return read(c);
+              }
+
+              private String postAuth(
+                      String endpoint,
+                      String json) throws Exception {
+
+                  URL url =
+                          new URL(API + endpoint);
+
+                  HttpURLConnection c =
+                          (HttpURLConnection)
+                                  url.openConnection();
+
+                  c.setRequestMethod("POST");
+                  c.setDoOutput(true);
+
+                  c.setRequestProperty(
+                          "Content-Type",
+                          "application/json; charset=UTF-8");
+
+                  c.setRequestProperty(
+                          "Authorization",
+                          "Bearer " +
+                          prefs.getString(
+                                  "token",
+                                  ""));
+
+                  c.setConnectTimeout(15000);
+                  c.setReadTimeout(15000);
+
+                  OutputStream os =
+                          c.getOutputStream();
+
+                  os.write(
+                          json.getBytes("UTF-8"));
+
+                  os.close();
+
+                  return read(c);
+              }
+
+              private String read(
+                      HttpURLConnection c)
+                      throws Exception {
+
+                  InputStream stream;
+
+                  if(c.getResponseCode() >= 400) {
+                      stream = c.getErrorStream();
+                  } else {
+                      stream = c.getInputStream();
                   }
-
-                  if (method.equals("POST")
-                          || method.equals("PUT")) {
-
-                      c.setDoOutput(true);
-
-                      c.setRequestProperty(
-                              "Content-Type",
-                              "application/json; charset=UTF-8");
-
-                      OutputStream os =
-                              c.getOutputStream();
-
-                      os.write(
-                              body.getBytes(
-                                      StandardCharsets.UTF_8));
-
-                      os.flush();
-                      os.close();
-                  }
-
-                  int code =
-                          c.getResponseCode();
 
                   BufferedReader reader =
                           new BufferedReader(
                                   new InputStreamReader(
-                                          code >= 200
-                                                  && code < 400
-                                                  ? c.getInputStream()
-                                                  : c.getErrorStream(),
-                                          StandardCharsets.UTF_8));
+                                          stream,
+                                          "UTF-8"));
 
                   StringBuilder result =
                           new StringBuilder();
 
                   String line;
 
-                  while ((line = reader.readLine())
-                          != null) {
-
+                  while((line = reader.readLine()) != null) {
                       result.append(line);
                   }
 
@@ -1149,43 +1239,12 @@ jobs:
 
                   return result.toString();
               }
-
-              private String formatNumber(int value) {
-
-                  String s =
-                          String.valueOf(value);
-
-                  StringBuilder r =
-                          new StringBuilder();
-
-                  int count = 0;
-
-                  for (int i = s.length() - 1;
-                       i >= 0;
-                       i--) {
-
-                      if (count == 3) {
-
-                          r.insert(0, ",");
-
-                          count = 0;
-                      }
-
-                      r.insert(
-                              0,
-                              s.charAt(i));
-
-                      count++;
-                  }
-
-                  return r.toString();
-              }
           }
           EOF
 
       - name: Build APK
         run: |
-          gradle assembleDebug
+          gradle assembleDebug --stacktrace
 
       - name: Verify APK
         run: |
@@ -1195,6 +1254,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nobatyar-apk-v1-1
+          name: nobatyar-apk-final
           path: app/build/outputs/apk/debug/app-debug.apk
 ```
