@@ -120,7 +120,6 @@ jobs:
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-
               <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:windowLightStatusBar">true</item>
@@ -128,7 +127,6 @@ jobs:
                   <item name="android:navigationBarColor">#FFFFFF</item>
                   <item name="android:colorAccent">#2563EB</item>
               </style>
-
           </resources>
           EOF
 
@@ -184,4 +182,3 @@ jobs:
         with:
           name: nobatyar-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-EOF
